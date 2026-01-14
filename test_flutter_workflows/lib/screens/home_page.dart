@@ -6,6 +6,7 @@ import 'package:hyperkyc_flutter/hyperkyc_result.dart';
 import 'package:test_flutter_workflows/components/text_fields.dart';
 import 'package:test_flutter_workflows/components/custom_submit_button.dart';
 import 'package:test_flutter_workflows/components/custom_keyValue.dart';
+import 'package:test_flutter_workflows/utils/logger.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -22,10 +23,11 @@ class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _workflowIdController = TextEditingController();
   final TextEditingController _transactionIdController = TextEditingController();
 
-  // List of custom inputs, each with key and value controllers
-  List<Map<String, TextEditingController>> _customInputs = [];
+  // List of custom inputs, each with key and value controllers and focus node
+  List<Map<String, dynamic>> _customInputs = [];
 
   bool _loading = false;
+  bool _persistLogs = true;
 
   @override
   void initState() {
@@ -36,9 +38,15 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _addCustomInput() {
     setState(() {
+      final focusNode = FocusNode();
       _customInputs.add({
         'key': TextEditingController(),
         'value': TextEditingController(),
+        'focusNode': focusNode,
+      });
+      // Request focus on the new input after the widget builds
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        focusNode.requestFocus();
       });
     });
   }
@@ -47,6 +55,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _customInputs[index]['key']!.dispose();
       _customInputs[index]['value']!.dispose();
+      _customInputs[index]['focusNode']!.dispose();
       _customInputs.removeAt(index);
     });
   }
@@ -60,8 +69,16 @@ class _MyHomePageState extends State<MyHomePage> {
     for (var input in _customInputs) {
       input['key']!.dispose();
       input['value']!.dispose();
+      input['focusNode']!.dispose();
     }
     super.dispose();
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   // Optional static demo inputs; user can add one custom key/value via UI as well.
@@ -76,9 +93,7 @@ class _MyHomePageState extends State<MyHomePage> {
     final transactionId = _transactionIdController.text.trim();
 
     if (appId.isEmpty || appKey.isEmpty || workflowId.isEmpty || transactionId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields before starting KYC')),
-      );
+      _showSnack('Please fill all fields before starting KYC');
       return;
     }
 
@@ -104,50 +119,79 @@ class _MyHomePageState extends State<MyHomePage> {
     // Log the final values we will send to the SDK (helps debugging incorrect inputs)
     debugPrint('Launching HyperKyc with appId=$appId, appKey=${appKey.replaceAll(RegExp('.'), '*')}, workflowId=$workflowId, transactionId=$transactionId, customInputs=$inputs');
 
+    // Persist the request (redact appKey) if enabled
+    if (_persistLogs) {
+      try {
+        await Logger.instance.logJson({
+          'event': 'startKyc.request',
+          'appId': appId,
+          'appKey': appKey.replaceAll(RegExp('.'), '*'),
+          'workflowId': workflowId,
+          'transactionId': transactionId,
+          'inputs': inputs,
+          'timestamp': DateTime.now().toIso8601String(),
+        });
+      } catch (e) {
+        debugPrint('Failed to persist startKyc.request: $e');
+      }
+    }
+
     // If your flow contains inputs
     hyperKycConfig.setInputs(inputs: inputs);
 
     try {
-      final HyperKycResult hyperKycResult =
-          await HyperKyc.launch(hyperKycConfig: hyperKycConfig);
+      final HyperKycResult hyperKycResult = await HyperKyc.launch(hyperKycConfig: hyperKycConfig);
+
+      // Persist the result
+      if (_persistLogs) {
+        try {
+          await Logger.instance.logJson({
+            'event': 'startKyc.result',
+            'status': hyperKycResult.status?.value,
+            'raw': hyperKycResult.toString(),
+            'timestamp': DateTime.now().toIso8601String(),
+          });
+        } catch (e) {
+          debugPrint('Failed to persist startKyc.result: $e');
+        }
+      }
 
       final String? status = hyperKycResult.status?.value;
       switch (status) {
         case 'auto_approved':
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Workflow successful - auto approved')),
-          );
+          _showSnack('Workflow successful - auto approved');
           break;
         case 'auto_declined':
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Workflow successful - auto declined')),
-          );
+          _showSnack('Workflow successful - auto declined');
           break;
         case 'needs_review':
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Workflow successful - needs review')),
-          );
+          _showSnack('Workflow successful - needs review');
           break;
         case 'error':
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failure')),
-          );
+          _showSnack('Failure');
           break;
         case 'user_cancelled':
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User cancelled')),
-          );
+          _showSnack('User cancelled');
           break;
         default:
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Contact HyperVerge for more details')),
-          );
+          _showSnack('Contact HyperVerge for more details');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       // Log or show unexpected errors
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error launching HyperKyc: $e')),
-      );
+      if (_persistLogs) {
+        try {
+          await Logger.instance.logJson({
+            'event': 'startKyc.exception',
+            'error': e.toString(),
+            'stack': stackTrace.toString(),
+            'timestamp': DateTime.now().toIso8601String(),
+          });
+        } catch (e) {
+          debugPrint('Failed to persist startKyc.exception: $e');
+        }
+      }
+
+      _showSnack('Error launching HyperKyc: $e');
     } finally {
       setState(() => _loading = false);
     }
@@ -177,13 +221,30 @@ class _MyHomePageState extends State<MyHomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 const SizedBox(height: 8),
-                const Text(
-                  'Configurations',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 164, 164, 219),
-                  ),
+                Row(
+                  children: [
+                    const Text(
+                      'Configurations',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color.fromARGB(255, 164, 164, 219),
+                      ),
+                    ),
+                    const Spacer(),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Persist logs', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 8),
+                        Switch(
+                          value: _persistLogs,
+                          activeColor: const Color.fromARGB(255, 164, 164, 219),
+                          onChanged: (v) => setState(() => _persistLogs = v),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -267,6 +328,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     return CustomKeyValueInput(
                       keyController: _customInputs[index]['key']!,
                       valueController: _customInputs[index]['value']!,
+                      keyFocusNode: _customInputs[index]['focusNode']!,
                       index: index,
                       canRemove: _customInputs.length > 1,
                       onRemove: () => _removeCustomInput(index),

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
-class CustomKeyValueInput extends StatelessWidget {
+class CustomKeyValueInput extends StatefulWidget {
   final TextEditingController keyController;
   final TextEditingController valueController;
   final int index;
   final VoidCallback? onRemove;
   final bool canRemove;
+  final FocusNode? keyFocusNode;
+  final bool requestFocus;
 
   const CustomKeyValueInput({
     super.key,
@@ -14,7 +16,35 @@ class CustomKeyValueInput extends StatelessWidget {
     required this.index,
     this.onRemove,
     this.canRemove = true,
+    this.keyFocusNode,
+    this.requestFocus = false,
   });
+
+  @override
+  State<CustomKeyValueInput> createState() => _CustomKeyValueInputState();
+}
+
+class _CustomKeyValueInputState extends State<CustomKeyValueInput> {
+  late FocusNode _keyFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _keyFocusNode = widget.keyFocusNode ?? FocusNode();
+    if (widget.requestFocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _keyFocusNode.requestFocus();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.keyFocusNode == null) {
+      _keyFocusNode.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +69,7 @@ class CustomKeyValueInput extends StatelessWidget {
           Row(
             children: [
               Text(
-                'Custom Input ${index + 1}',
+                'Custom Input ${widget.index + 1}',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -47,11 +77,11 @@ class CustomKeyValueInput extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              if (canRemove)
+              if (widget.canRemove)
                 IconButton(
                   icon: const Icon(Icons.close, size: 20),
                   color: Colors.grey[600],
-                  onPressed: onRemove,
+                  onPressed: widget.onRemove,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -67,7 +97,8 @@ class CustomKeyValueInput extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: TextField(
-                    controller: keyController,
+                    controller: widget.keyController,
+                    focusNode: _keyFocusNode,
                     decoration: InputDecoration(
                       hintText: 'Key',
                       hintStyle: TextStyle(color: Colors.grey[400]),
@@ -88,7 +119,7 @@ class CustomKeyValueInput extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: TextField(
-                    controller: valueController,
+                    controller: widget.valueController,
                     decoration: InputDecoration(
                       hintText: 'Value',
                       hintStyle: TextStyle(color: Colors.grey[400]),
