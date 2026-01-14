@@ -1,4 +1,6 @@
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:hyperkyc_flutter/hyperkyc_config.dart';
 import 'package:hyperkyc_flutter/hyperkyc_flutter.dart';
@@ -90,6 +92,102 @@ class _MyHomePageState extends State<MyHomePage> {
       _customInputs[index]['value']!.dispose();
       _customInputs[index]['focusNode']!.dispose();
       _customInputs.removeAt(index);
+    });
+  }
+
+  /// Open a bottom sheet where user can paste JSON. The JSON must be an object
+  /// mapping keys to values. On successful parsing we add those key/value pairs
+  /// as custom inputs.
+  void _openJsonInputSheet() {
+    final TextEditingController jsonController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Paste JSON',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: jsonController,
+                maxLines: 8,
+                decoration: const InputDecoration(
+                  hintText: '{"key1": "value1", "key2": "value2"}',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      final raw = jsonController.text.trim();
+                      if (raw.isEmpty) {
+                        _showSnack('Please paste a JSON payload');
+                        return;
+                      }
+
+                      try {
+                        final decoded = json.decode(raw);
+                        if (decoded is Map<String, dynamic>) {
+                          _addCustomInputsFromMap(decoded);
+                          Navigator.of(context).pop();
+                        } else {
+                          _showSnack('JSON must be an object mapping keys to values');
+                        }
+                      } catch (e) {
+                        _showSnack('Invalid JSON: ${e.toString()}');
+                      }
+                    },
+                    child: const Text('Add custom inputs'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _addCustomInputsFromMap(Map<String, dynamic> map) {
+    setState(() {
+      map.forEach((k, v) {
+        final focusNode = FocusNode();
+        _customInputs.add({
+          'key': TextEditingController(text: k),
+          'value': TextEditingController(text: v?.toString() ?? ''),
+          'focusNode': focusNode,
+        });
+      });
+      // Focus the last added key
+      if (_customInputs.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _customInputs.last['focusNode']?.requestFocus();
+        });
+      }
     });
   }
 
@@ -350,20 +448,34 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ),
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color.fromARGB(255, 164, 164, 219).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Optional',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color.fromARGB(255, 164, 164, 219),
-                          fontWeight: FontWeight.w500,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color.fromARGB(255, 164, 164, 219).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Optional',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color.fromARGB(255, 164, 164, 219),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          onPressed: _openJsonInputSheet,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('json i/p', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
                     ),
                   ],
                 ),
