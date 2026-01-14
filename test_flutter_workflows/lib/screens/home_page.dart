@@ -7,6 +7,7 @@ import 'package:test_flutter_workflows/components/text_fields.dart';
 import 'package:test_flutter_workflows/components/custom_submit_button.dart';
 import 'package:test_flutter_workflows/components/custom_keyValue.dart';
 import 'package:test_flutter_workflows/utils/logger.dart';
+import 'package:test_flutter_workflows/screens/logs_screen.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -211,6 +212,21 @@ class _MyHomePageState extends State<MyHomePage> {
             fontWeight: FontWeight.w600,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.article_outlined,
+              color: Color.fromARGB(255, 164, 164, 219),
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LogsScreen()),
+              );
+            },
+            tooltip: 'View Logs',
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(

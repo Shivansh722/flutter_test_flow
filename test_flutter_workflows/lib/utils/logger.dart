@@ -68,6 +68,32 @@ class Logger {
     }
   }
 
+  /// Read all logs from the file
+  Future<String> readLogs() async {
+    try {
+      if (!_initialized) await _init();
+      if (_file != null && await _file!.exists()) {
+        return await _file!.readAsString();
+      }
+      return 'No logs available yet';
+    } catch (e) {
+      debugPrint('Failed to read logs: $e');
+      return 'Error reading logs: $e';
+    }
+  }
+
+  /// Clear all logs
+  Future<void> clearLogs() async {
+    try {
+      if (!_initialized) await _init();
+      if (_file != null && await _file!.exists()) {
+        await _file!.writeAsString('');
+      }
+    } catch (e) {
+      debugPrint('Failed to clear logs: $e');
+    }
+  }
+
   /// Convenience to close background writer (useful in tests)
   Future<void> close() async {
     await _queue.close();
