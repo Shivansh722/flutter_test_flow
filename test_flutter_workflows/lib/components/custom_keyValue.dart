@@ -8,6 +8,8 @@ class CustomKeyValueInput extends StatefulWidget {
   final bool canRemove;
   final FocusNode? keyFocusNode;
   final bool requestFocus;
+  final String? keyHint;
+  final String? valueHint;
 
   const CustomKeyValueInput({
     super.key,
@@ -18,6 +20,8 @@ class CustomKeyValueInput extends StatefulWidget {
     this.canRemove = true,
     this.keyFocusNode,
     this.requestFocus = false,
+    this.keyHint,
+    this.valueHint,
   });
 
   @override
@@ -100,7 +104,7 @@ class _CustomKeyValueInputState extends State<CustomKeyValueInput> {
                     controller: widget.keyController,
                     focusNode: _keyFocusNode,
                     decoration: InputDecoration(
-                      hintText: 'Key',
+                      hintText: widget.keyController.text.isEmpty ? (widget.keyHint ?? 'Key') : null,
                       hintStyle: TextStyle(color: Colors.grey[400]),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
@@ -121,7 +125,7 @@ class _CustomKeyValueInputState extends State<CustomKeyValueInput> {
                   child: TextField(
                     controller: widget.valueController,
                     decoration: InputDecoration(
-                      hintText: 'Value',
+                      hintText: widget.valueController.text.isEmpty ? (widget.valueHint ?? 'Value') : null,
                       hintStyle: TextStyle(color: Colors.grey[400]),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(

@@ -39,8 +39,10 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    // Start with demo inputs shown as custom input pairs
-    _addCustomInputsFromMap(demoInputs);
+    // Start with one empty custom input; show demo values as placeholders
+    final firstDemoKey = demoInputs.keys.isNotEmpty ? demoInputs.keys.first : null;
+    final firstDemoValue = firstDemoKey != null ? demoInputs[firstDemoKey] : null;
+    _addCustomInputWithHints(firstDemoKey, firstDemoValue);
   }
 
   // OCR handler methods for each field
@@ -83,6 +85,21 @@ class _MyHomePageState extends State<MyHomePage> {
       // Request focus on the new input after the widget builds
       WidgetsBinding.instance.addPostFrameCallback((_) {
         focusNode.requestFocus();
+      });
+    });
+  }
+
+  /// Add a custom input row with empty controllers but display the given hints
+  /// as placeholder text until the user types into the fields.
+  void _addCustomInputWithHints(String? keyHint, String? valueHint) {
+    setState(() {
+      final focusNode = FocusNode();
+      _customInputs.add({
+        'key': TextEditingController(),
+        'value': TextEditingController(),
+        'focusNode': focusNode,
+        'keyHint': keyHint,
+        'valueHint': valueHint,
       });
     });
   }
@@ -505,6 +522,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       keyController: _customInputs[index]['key']!,
                       valueController: _customInputs[index]['value']!,
                       keyFocusNode: _customInputs[index]['focusNode']!,
+                      keyHint: _customInputs[index]['keyHint'] as String?,
+                      valueHint: _customInputs[index]['valueHint'] as String?,
                       index: index,
                       canRemove: _customInputs.length > 1,
                       onRemove: () => _removeCustomInput(index),
