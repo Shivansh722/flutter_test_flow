@@ -30,28 +30,64 @@ class CustomKeyValueInput extends StatefulWidget {
 
 class _CustomKeyValueInputState extends State<CustomKeyValueInput> {
   late FocusNode _keyFocusNode;
+  bool _shouldDisposeFocusNode = false;
+  bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
     _keyFocusNode = widget.keyFocusNode ?? FocusNode();
+    _shouldDisposeFocusNode = widget.keyFocusNode == null;
+    
     if (widget.requestFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _keyFocusNode.requestFocus();
+        if (mounted && !_disposed && _keyFocusNode.canRequestFocus) {
+          try {
+            _keyFocusNode.requestFocus();
+          } catch (e) {
+            debugPrint('Focus request failed in CustomKeyValueInput: $e');
+          }
+        }
       });
     }
   }
 
   @override
+  void didUpdateWidget(CustomKeyValueInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the focus node changed, update our reference
+    if (oldWidget.keyFocusNode != widget.keyFocusNode) {
+      if (_shouldDisposeFocusNode && !_disposed) {
+        try {
+          _keyFocusNode.dispose();
+        } catch (e) {
+          debugPrint('Error disposing old focus node: $e');
+        }
+      }
+      _keyFocusNode = widget.keyFocusNode ?? FocusNode();
+      _shouldDisposeFocusNode = widget.keyFocusNode == null;
+    }
+  }
+
+  @override
   void dispose() {
-    if (widget.keyFocusNode == null) {
-      _keyFocusNode.dispose();
+    _disposed = true;
+    if (_shouldDisposeFocusNode) {
+      try {
+        _keyFocusNode.dispose();
+      } catch (e) {
+        debugPrint('Error disposing focus node: $e');
+      }
     }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Cache hint text values to avoid rebuilding issues
+    final String keyHintText = widget.keyHint ?? 'Key';
+    final String valueHintText = widget.valueHint ?? 'Value';
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -104,7 +140,7 @@ class _CustomKeyValueInputState extends State<CustomKeyValueInput> {
                     controller: widget.keyController,
                     focusNode: _keyFocusNode,
                     decoration: InputDecoration(
-                      hintText: widget.keyController.text.isEmpty ? (widget.keyHint ?? 'Key') : null,
+                      hintText: keyHintText,
                       hintStyle: TextStyle(color: Colors.grey[400]),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
@@ -125,7 +161,7 @@ class _CustomKeyValueInputState extends State<CustomKeyValueInput> {
                   child: TextField(
                     controller: widget.valueController,
                     decoration: InputDecoration(
-                      hintText: widget.valueController.text.isEmpty ? (widget.valueHint ?? 'Value') : null,
+                      hintText: valueHintText,
                       hintStyle: TextStyle(color: Colors.grey[400]),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(

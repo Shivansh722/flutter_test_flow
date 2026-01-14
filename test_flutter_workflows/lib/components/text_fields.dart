@@ -29,8 +29,13 @@ class ModernTextField extends StatelessWidget {
     if (requestFocus && focusNode != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
-          focusNode!.requestFocus();
-        } catch (_) {}
+          final fn = focusNode;
+          if (fn != null) {
+            fn.requestFocus();
+          }
+        } catch (e, st) {
+          debugPrint('ModernTextField focus request failed: $e\n$st');
+        }
       });
     }
     return Container(

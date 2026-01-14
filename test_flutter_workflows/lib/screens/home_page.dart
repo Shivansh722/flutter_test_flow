@@ -11,6 +11,7 @@ import 'package:test_flutter_workflows/components/custom_keyValue.dart';
 import 'package:test_flutter_workflows/utils/logger.dart';
 import 'package:test_flutter_workflows/screens/logs_screen.dart';
 import 'package:test_flutter_workflows/utils/ocr_service.dart';
+import 'package:test_flutter_workflows/utils/version_manager.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -33,6 +34,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   bool _loading = false;
   bool _persistLogs = true;
+  String _runtimeSdkVersion = kHyperKycVersion;
 
   final OCRService _ocrService = OCRService();
 
@@ -43,6 +45,12 @@ class _MyHomePageState extends State<MyHomePage> {
     final firstDemoKey = demoInputs.keys.isNotEmpty ? demoInputs.keys.first : null;
     final firstDemoValue = firstDemoKey != null ? demoInputs[firstDemoKey] : null;
     _addCustomInputWithHints(firstDemoKey, firstDemoValue);
+    // Load persisted runtime version (if any)
+    VersionManager.getCurrentHyperKycVersion().then((v) {
+      setState(() {
+        _runtimeSdkVersion = v;
+      });
+    }).ignore;
   }
 
   // OCR handler methods for each field
@@ -84,7 +92,16 @@ class _MyHomePageState extends State<MyHomePage> {
       });
       // Request focus on the new input after the widget builds
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        focusNode.requestFocus();
+        try {
+          if (!mounted) return;
+          // Ensure the focus node is still part of the current inputs (not removed)
+          final stillPresent = _customInputs.any((m) => identical(m['focusNode'], focusNode));
+          if (stillPresent) {
+            focusNode.requestFocus();
+          }
+        } catch (e, st) {
+          debugPrint('Focus request failed: $e\n$st');
+        }
       });
     });
   }
@@ -103,6 +120,8 @@ class _MyHomePageState extends State<MyHomePage> {
       });
     });
   }
+
+  
 
   void _removeCustomInput(int index) {
     setState(() {
@@ -191,7 +210,13 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _addCustomInputsFromMap(Map<String, dynamic> map) {
+    // Store old inputs for disposal after frame
+    final oldInputs = List<Map<String, dynamic>>.from(_customInputs);
+    
+    // Replace with new inputs immediately
     setState(() {
+      _customInputs.clear();
+      
       map.forEach((k, v) {
         final focusNode = FocusNode();
         _customInputs.add({
@@ -200,6 +225,19 @@ class _MyHomePageState extends State<MyHomePage> {
           'focusNode': focusNode,
         });
       });
+    });
+    
+    // Dispose old controllers and focus nodes after the frame completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (var input in oldInputs) {
+        try {
+          input['key']?.dispose();
+          input['value']?.dispose();
+          input['focusNode']?.dispose();
+        } catch (e) {
+          debugPrint('Error disposing old custom input: $e');
+        }
+      }
     });
   }
 
@@ -261,7 +299,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     // Log the final values we will send to the SDK (helps debugging incorrect inputs)
-    debugPrint('Launching HyperKyc with appId=$appId, appKey=${appKey.replaceAll(RegExp('.'), '*')}, workflowId=$workflowId, transactionId=$transactionId, customInputs=$inputs');
+    debugPrint('Launching HyperKyc with appId=$appId, appKey=${appKey.replaceAll(RegExp('.'), '*')}, workflowId=$workflowId, transactionId=$transactionId, sdkVersion=$_runtimeSdkVersion, customInputs=$inputs');
 
     // Persist the request (redact appKey) if enabled
     if (_persistLogs) {
@@ -272,6 +310,7 @@ class _MyHomePageState extends State<MyHomePage> {
           'appKey': appKey.replaceAll(RegExp('.'), '*'),
           'workflowId': workflowId,
           'transactionId': transactionId,
+          'sdkVersion': _runtimeSdkVersion,
           'inputs': inputs,
           'timestamp': DateTime.now().toIso8601String(),
         });
@@ -283,6 +322,14 @@ class _MyHomePageState extends State<MyHomePage> {
     // If your flow contains inputs
     hyperKycConfig.setInputs(inputs: inputs);
 
+    // Include the runtime SDK version in the inputs so it's sent to the SDK
+    // (This allows you to track which version string was used when triggering the workflow)
+    final allInputs = <String, String>{
+      ...inputs,
+      'sdkVersion': _runtimeSdkVersion,
+    };
+    hyperKycConfig.setInputs(inputs: allInputs);
+
     try {
       final HyperKycResult hyperKycResult = await HyperKyc.launch(hyperKycConfig: hyperKycConfig);
 
@@ -292,6 +339,7 @@ class _MyHomePageState extends State<MyHomePage> {
           await Logger.instance.logJson({
             'event': 'startKyc.result',
             'status': hyperKycResult.status?.value,
+            'sdkVersion': _runtimeSdkVersion,
             'raw': hyperKycResult.toString(),
             'timestamp': DateTime.now().toIso8601String(),
           });
@@ -327,6 +375,7 @@ class _MyHomePageState extends State<MyHomePage> {
           await Logger.instance.logJson({
             'event': 'startKyc.exception',
             'error': e.toString(),
+            'sdkVersion': _runtimeSdkVersion,
             'stack': stackTrace.toString(),
             'timestamp': DateTime.now().toIso8601String(),
           });
