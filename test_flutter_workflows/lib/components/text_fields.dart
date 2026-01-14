@@ -8,6 +8,8 @@ class ModernTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final bool enableOCR;
   final VoidCallback? onOCRTap;
+  final FocusNode? focusNode;
+  final bool requestFocus;
 
   const ModernTextField({
     super.key,
@@ -18,10 +20,19 @@ class ModernTextField extends StatelessWidget {
     this.keyboardType,
     this.enableOCR = false,
     this.onOCRTap,
+    this.focusNode,
+    this.requestFocus = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (requestFocus && focusNode != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          focusNode!.requestFocus();
+        } catch (_) {}
+      });
+    }
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey[50],
@@ -30,6 +41,7 @@ class ModernTextField extends StatelessWidget {
       ),
       child: TextField(
         controller: controller,
+        focusNode: focusNode,
         keyboardType: keyboardType,
         style: const TextStyle(fontSize: 16),
         decoration: InputDecoration(

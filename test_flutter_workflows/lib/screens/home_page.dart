@@ -26,6 +26,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _appKeyController = TextEditingController();
   final TextEditingController _workflowIdController = TextEditingController();
   final TextEditingController _transactionIdController = TextEditingController();
+  final FocusNode _appIdFocusNode = FocusNode();
 
   // List of custom inputs, each with key and value controllers and focus node
   List<Map<String, dynamic>> _customInputs = [];
@@ -38,8 +39,8 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    // Start with one custom input pair
-    _addCustomInput();
+    // Start with demo inputs shown as custom input pairs
+    _addCustomInputsFromMap(demoInputs);
   }
 
   // OCR handler methods for each field
@@ -182,18 +183,13 @@ class _MyHomePageState extends State<MyHomePage> {
           'focusNode': focusNode,
         });
       });
-      // Focus the last added key
-      if (_customInputs.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _customInputs.last['focusNode']?.requestFocus();
-        });
-      }
     });
   }
 
   @override
   void dispose() {
     _appIdController.dispose();
+    _appIdFocusNode.dispose();
     _appKeyController.dispose();
     _workflowIdController.dispose();
     _transactionIdController.dispose();
@@ -237,8 +233,8 @@ class _MyHomePageState extends State<MyHomePage> {
       transactionId: transactionId,
     );
 
-    // Build inputs: start with demo inputs, then include custom key/values if provided
-    final Map<String, String> inputs = Map<String, String>.from(demoInputs);
+  // Build inputs from custom key/values (demo inputs are shown as prefilled custom inputs)
+  final Map<String, String> inputs = <String, String>{};
     for (var input in _customInputs) {
       final key = input['key']!.text.trim();
       final value = input['value']!.text.trim();
@@ -408,6 +404,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   prefixIcon: Icons.app_settings_alt,
                   enableOCR: true,
                   onOCRTap: _handleOCRForAppId,
+                  focusNode: _appIdFocusNode,
+                  requestFocus: true,
                 ),
                 const SizedBox(height: 16),
                 ModernTextField(
@@ -451,29 +449,39 @@ class _MyHomePageState extends State<MyHomePage> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color.fromARGB(255, 164, 164, 219).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'Optional',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color.fromARGB(255, 164, 164, 219),
-                              fontWeight: FontWeight.w500,
+                        // Container(
+                        //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        //   decoration: BoxDecoration(
+                        //     color: const Color.fromARGB(255, 164, 164, 219).withOpacity(0.1),
+                        //     borderRadius: BorderRadius.circular(12),
+                        //   ),
+                        //   child: const Text(
+                        //     'Optional',
+                        //     style: TextStyle(
+                        //       fontSize: 12,
+                        //       color: Color.fromARGB(255, 164, 164, 219),
+                        //       fontWeight: FontWeight.w500,
+                        //     ),
+                        //   ),
+                        // ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _openJsonInputSheet,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color.fromARGB(255, 164, 164, 219).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'json i/p',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color.fromARGB(255, 164, 164, 219),
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: _openJsonInputSheet,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: const Text('json i/p', style: TextStyle(fontSize: 12)),
                         ),
                       ],
                     ),
