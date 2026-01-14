@@ -8,6 +8,7 @@ import 'package:test_flutter_workflows/components/custom_submit_button.dart';
 import 'package:test_flutter_workflows/components/custom_keyValue.dart';
 import 'package:test_flutter_workflows/utils/logger.dart';
 import 'package:test_flutter_workflows/screens/logs_screen.dart';
+import 'package:test_flutter_workflows/utils/ocr_service.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -30,11 +31,42 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _loading = false;
   bool _persistLogs = true;
 
+  final OCRService _ocrService = OCRService();
+
   @override
   void initState() {
     super.initState();
     // Start with one custom input pair
     _addCustomInput();
+  }
+
+  // OCR handler methods for each field
+  Future<void> _handleOCRForAppId() async {
+    final text = await _ocrService.captureAndRecognizeText(context);
+    if (text != null) {
+      _appIdController.text = text;
+    }
+  }
+
+  Future<void> _handleOCRForAppKey() async {
+    final text = await _ocrService.captureAndRecognizeText(context);
+    if (text != null) {
+      _appKeyController.text = text;
+    }
+  }
+
+  Future<void> _handleOCRForWorkflowId() async {
+    final text = await _ocrService.captureAndRecognizeText(context);
+    if (text != null) {
+      _workflowIdController.text = text;
+    }
+  }
+
+  Future<void> _handleOCRForTransactionId() async {
+    final text = await _ocrService.captureAndRecognizeText(context);
+    if (text != null) {
+      _transactionIdController.text = text;
+    }
   }
 
   void _addCustomInput() {
@@ -276,6 +308,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   label: 'App ID',
                   hint: 'Enter your application ID',
                   prefixIcon: Icons.app_settings_alt,
+                  enableOCR: true,
+                  onOCRTap: _handleOCRForAppId,
                 ),
                 const SizedBox(height: 16),
                 ModernTextField(
@@ -283,6 +317,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   label: 'App Key',
                   hint: 'Enter your application key',
                   prefixIcon: Icons.key,
+                  enableOCR: true,
+                  onOCRTap: _handleOCRForAppKey,
                 ),
                 const SizedBox(height: 16),
                 ModernTextField(
@@ -290,6 +326,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   label: 'Workflow ID',
                   hint: 'Enter workflow identifier',
                   prefixIcon: Icons.account_tree,
+                  enableOCR: true,
+                  onOCRTap: _handleOCRForWorkflowId,
                 ),
                 const SizedBox(height: 16),
                 ModernTextField(
@@ -297,6 +335,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   label: 'Transaction ID',
                   hint: 'Enter transaction identifier',
                   prefixIcon: Icons.receipt_long,
+                  enableOCR: true,
+                  onOCRTap: _handleOCRForTransactionId,
                 ),
                 const SizedBox(height: 32),
                 Row(

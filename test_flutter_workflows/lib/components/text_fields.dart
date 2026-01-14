@@ -6,6 +6,8 @@ class ModernTextField extends StatelessWidget {
   final String? hint;
   final IconData? prefixIcon;
   final TextInputType? keyboardType;
+  final bool enableOCR;
+  final VoidCallback? onOCRTap;
 
   const ModernTextField({
     super.key,
@@ -14,6 +16,8 @@ class ModernTextField extends StatelessWidget {
     this.hint,
     this.prefixIcon,
     this.keyboardType,
+    this.enableOCR = false,
+    this.onOCRTap,
   });
 
   @override
@@ -35,6 +39,16 @@ class ModernTextField extends StatelessWidget {
           hintStyle: TextStyle(color: Colors.grey[400]),
           prefixIcon: prefixIcon != null
               ? Icon(prefixIcon, color: const Color.fromARGB(255, 164, 164, 219))
+              : null,
+          suffixIcon: enableOCR
+              ? IconButton(
+                  icon: const Icon(
+                    Icons.camera_alt_outlined,
+                    color: Color.fromARGB(255, 164, 164, 219),
+                  ),
+                  onPressed: onOCRTap,
+                  tooltip: 'Scan text with OCR',
+                )
               : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
