@@ -2,9 +2,11 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:hyperkyc_flutter/hyperkyc_config.dart';
 import 'package:hyperkyc_flutter/hyperkyc_flutter.dart';
 import 'package:hyperkyc_flutter/hyperkyc_result.dart';
+import 'package:hyperkyc_flutter/hyperkyc_theme_mode.dart';
 import 'package:test_flutter_workflows/components/text_fields.dart';
 import 'package:test_flutter_workflows/components/custom_submit_button.dart';
 import 'package:test_flutter_workflows/components/custom_keyValue.dart';
@@ -34,23 +36,58 @@ class _MyHomePageState extends State<MyHomePage> {
 
   bool _loading = false;
   bool _persistLogs = true;
-  String _runtimeSdkVersion = kHyperKycVersion;
+  // start with a placeholder; real value loaded asynchronously
+  String _runtimeSdkVersion = 'unknown';
 
   final OCRService _ocrService = OCRService();
+
+  // Predefined eSign inputs
+  final Map<String, String> eSignInputs = {
+    "userName": "Priyansh Manoj Sinha",
+    "userEmail": "priyanshs2000@gmail.com",
+    "templateId": "goldenpi_1",
+    "coordinates": '[{"x1": 383, "x2": 503, "y1": 48, "y2": 88, "page": 1}]',
+    "baseDocument": "",
+  };
 
   @override
   void initState() {
     super.initState();
-    // Start with one empty custom input; show demo values as placeholders
-    final firstDemoKey = demoInputs.keys.isNotEmpty ? demoInputs.keys.first : null;
-    final firstDemoValue = firstDemoKey != null ? demoInputs[firstDemoKey] : null;
-    _addCustomInputWithHints(firstDemoKey, firstDemoValue);
+    _loadInputs();
     // Load persisted runtime version (if any)
     VersionManager.getCurrentHyperKycVersion().then((v) {
       setState(() {
         _runtimeSdkVersion = v;
       });
     }).ignore;
+  }
+
+  void _loadInputs() async {
+    // Set main fields
+    _appIdController.text = '1u6n6s';
+    _appKeyController.text = 'ijtbaxysugwm3doztgxv';
+    _workflowIdController.text = 'eSign';
+
+    // Load baseDocument from file
+    try {
+      final content = await rootBundle.loadString('assets/eSign_req.txt');
+      eSignInputs['baseDocument'] = content.trim();
+    } catch (e) {
+      debugPrint('Error reading assets/eSign_req.txt: $e');
+    }
+
+    // Add custom inputs
+    setState(() {
+      _customInputs.clear();
+      eSignInputs.forEach((key, value) {
+        final focusNode = FocusNode();
+        _customInputs.add({
+          'key': TextEditingController(text: key),
+          'value': TextEditingController(text: value),
+          'focusNode': focusNode,
+        });
+      });
+    });
   }
 
   // OCR handler methods for each field
@@ -263,11 +300,6 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  // Optional static demo inputs; user can add one custom key/value via UI as well.
-  final Map<String, String> demoInputs = {
-    "key1": "value1",
-  };
-
   Future<void> startKyc() async {
     final appId = _appIdController.text.trim();
     final appKey = _appKeyController.text.trim();
@@ -281,6 +313,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
     setState(() => _loading = true);
 
+    // ensure we have the latest version string before proceeding
+    final sdkVersion = await VersionManager.getCurrentHyperKycVersion();
+    setState(() { _runtimeSdkVersion = sdkVersion; });
+
     final hyperKycConfig = HyperKycConfig.fromAppIdAppKey(
       appId: appId,
       appKey: appKey,
@@ -288,8 +324,12 @@ class _MyHomePageState extends State<MyHomePage> {
       transactionId: transactionId,
     );
 
-  // Build inputs from custom key/values (demo inputs are shown as prefilled custom inputs)
-  final Map<String, String> inputs = <String, String>{};
+    // Set the theme mode for HyperKYC SDK
+    // Options: HKThemeMode.light, HKThemeMode.dark, HKThemeMode.system
+    hyperKycConfig.setHKThemeMode(hkThemeMode: HKThemeMode.dark);
+
+    // Build inputs from custom key/values (demo inputs are shown as prefilled custom inputs)
+    final Map<String, String> inputs = <String, String>{};
     for (var input in _customInputs) {
       final key = input['key']!.text.trim();
       final value = input['value']!.text.trim();
@@ -299,7 +339,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     // Log the final values we will send to the SDK (helps debugging incorrect inputs)
-    debugPrint('Launching HyperKyc with appId=$appId, appKey=${appKey.replaceAll(RegExp('.'), '*')}, workflowId=$workflowId, transactionId=$transactionId, sdkVersion=$_runtimeSdkVersion, customInputs=$inputs');
+    debugPrint('Launching HyperKyc with appId=$appId, appKey=${appKey.replaceAll(RegExp('.'), '*')}, workflowId=$workflowId, transactionId=$transactionId, sdkVersion=$sdkVersion, customInputs=$inputs');
 
     // Persist the request (redact appKey) if enabled
     if (_persistLogs) {
@@ -310,7 +350,7 @@ class _MyHomePageState extends State<MyHomePage> {
           'appKey': appKey.replaceAll(RegExp('.'), '*'),
           'workflowId': workflowId,
           'transactionId': transactionId,
-          'sdkVersion': _runtimeSdkVersion,
+          'sdkVersion': sdkVersion,
           'inputs': inputs,
           'timestamp': DateTime.now().toIso8601String(),
         });
@@ -326,7 +366,7 @@ class _MyHomePageState extends State<MyHomePage> {
     // (This allows you to track which version string was used when triggering the workflow)
     final allInputs = <String, String>{
       ...inputs,
-      'sdkVersion': _runtimeSdkVersion,
+      'sdkVersion': sdkVersion,
     };
     hyperKycConfig.setInputs(inputs: allInputs);
 
@@ -339,7 +379,7 @@ class _MyHomePageState extends State<MyHomePage> {
           await Logger.instance.logJson({
             'event': 'startKyc.result',
             'status': hyperKycResult.status?.value,
-            'sdkVersion': _runtimeSdkVersion,
+            'sdkVersion': sdkVersion,
             'raw': hyperKycResult.toString(),
             'timestamp': DateTime.now().toIso8601String(),
           });
@@ -375,7 +415,7 @@ class _MyHomePageState extends State<MyHomePage> {
           await Logger.instance.logJson({
             'event': 'startKyc.exception',
             'error': e.toString(),
-            'sdkVersion': _runtimeSdkVersion,
+            'sdkVersion': sdkVersion,
             'stack': stackTrace.toString(),
             'timestamp': DateTime.now().toIso8601String(),
           });

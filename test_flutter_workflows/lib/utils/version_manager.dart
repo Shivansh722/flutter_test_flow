@@ -1,16 +1,31 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Default version baked at build time. You can override it with
-/// `--dart-define=HYPERKYC_VERSION=2.3.0` when building the APK.
-const String kHyperKycVersion = String.fromEnvironment('HYPERKYC_VERSION', defaultValue: '2.3.0');
+import 'package:package_info_plus/package_info_plus.dart';
+
+/// Value that can be supplied at compile time for quick overrides.
+/// This is intentionally *not* used as the canonical version, it only
+/// takes precedence when you pass `--dart-define=HYPERKYC_VERSION=…`.
+const String kHyperKycEnvOverride =
+    String.fromEnvironment('HYPERKYC_VERSION', defaultValue: '');
 
 const _kPrefKey = 'hyperkyc_version';
 
 class VersionManager {
-  /// Returns the persisted version if present, otherwise the compile-time default.
+  /// Returns the persisted version if present, otherwise the real
+  /// package version from pubspec.yaml. A dart-define value can be used
+  /// to short-circuit this lookup during development or build scripts.
   static Future<String> getCurrentHyperKycVersion() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_kPrefKey) ?? kHyperKycVersion;
+    final override = prefs.getString(_kPrefKey);
+    if (override != null) return override;
+
+    if (kHyperKycEnvOverride.isNotEmpty) {
+      return kHyperKycEnvOverride;
+    }
+
+    // fetch from pubspec via package_info_plus
+    final info = await PackageInfo.fromPlatform();
+    return info.version;
   }
 
   /// Persist a runtime override for the version.

@@ -34,13 +34,14 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  hyperkyc_flutter: ^2.3.0
+  hyperkyc_flutter: ^2.8.1
   flutter_native_splash: ^2.4.0
   path_provider: ^2.0.0
   flutter_native_ocr: ^0.1.0
   image_picker: ^1.0.0
   image_cropper: ^11.0.0
   shared_preferences: ^2.0.0
+  package_info_plus: ^4.0.0
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +68,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/hyperverge-logo.jpg
+    - assets/eSign_req.txt
   # Example of additional assets:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
